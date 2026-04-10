@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monochrome Badge Generator</title>
+    
+    <!-- Tailwind CSS for modern styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- JSZip for extracting .pkpass files -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    
+    <!-- JsBarcode for generating Barcodes -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jsbarcode/3.11.5/JsBarcode.all.min.js"></script>
+    
+    <!-- QRious for generating QR-Codes -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"></script>
+
+    <style>
+        /* Prevent horizontal scrolling on mobile devices */
+        body { overflow-x: hidden; }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen text-gray-800 font-sans">
+
+    <div class="max-w-6xl mx-auto p-4 sm:p-6 lg:p-8">
+        <header class="mb-8 text-center sm:text-left">
+            <h1 class="text-3xl font-bold text-gray-900">Member Badge Generator</h1>
+            <p class="text-gray-600 mt-2">Creates pure black & white 480x800px BMP files.</p>
+        </header>
+
+        <div class="flex flex-col lg:flex-row gap-8">
+            
+            <!-- Left Side: Inputs -->
+            <div class="w-full lg:w-1/2 space-y-6">
+                
+                <!-- Option 1: pkpass Upload -->
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                    <h2 class="text-xl font-semibold mb-4 text-gray-800">Option 1: Import .pkpass File</h2>
+                    <label class="block w-full">
+                        <span class="sr-only">Choose a .pkpass file</span>
+                        <input type="file" id="pkpassInput" accept=".pkpass" class="block w-full text-sm text-gray-500
+                            file:mr-4 file:py-2 file:px-4
+                            file:rounded-md file:border-0
+                            file:text-sm file:font-semibold
+                            file:bg-blue-50 file:text-blue-700
+                            hover:file:bg-blue-100 cursor-pointer
+                            border border-gray-300 rounded-md" 
+                        />
+                    </label>
+                    <p class="text-xs text-gray-500 mt-2">The file is processed locally in your browser.</p>
+                </div>
+
+                <!-- Option 2: Manual Input -->
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                    <h2 class="text-xl font-semibold mb-4 text-gray-800">Option 2: Manual Input</h2>
+                    
+                    <div class="space-y-4">
+                        <div>
+                            <label for="title" class="block text-sm font-medium text-gray-700 mb-1">Badge Title</label>
+                            <input type="text" id="title" value="VIP Member" placeholder="e.g. Fitness Club Example" class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                        </div>
+                        
+                        <div>
+                            <label for="name" class="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
+                            <input type="text" id="name" value="John Doe" placeholder="First and Last Name" class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                        </div>
+                        
+                        <div>
+                            <label for="kundenid" class="block text-sm font-medium text-gray-700 mb-1">Customer ID</label>
+                            <input type="text" id="kundenid" value="CUSTOMER-12345" placeholder="Unique ID" class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                        </div>
+                        
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                                <label for="barcodeType" class="block text-sm font-medium text-gray-700 mb-1">Barcode Format</label>
+                                <select id="barcodeType" class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                                    <option value="CODE128">CODE128 (Default, Alphanumeric)</option>
+                                    <option value="CODE39">CODE39 (Alphanumeric)</option>
+                                    <option value="EAN13">EAN-13 (12/13 Digits only)</option>
+                                    <option value="EAN8">EAN-8 (7/8 Digits only)</option>
+                                    <option value="UPC">UPC (12 Digits only)</option>
+                                    <option value="ITF14">ITF-14 (14 Digits only)</option>
+                                </select>
+                            </div>
+                            
+                            <div>
+                                <label for="layoutType" class="block text-sm font-medium text-gray-700 mb-1">Layout Structure</label>
+                                <select id="layoutType" class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                                    <option value="ALL">Text + Barcode + QR</option>
+                                    <option value="TEXT_BARCODE">Text + Barcode Only</option>
+                                    <option value="TEXT_QR">Text + QR Code Only</option>
+                                    <option value="TEXT_ONLY">Text Only (No Codes)</option>
+                                    <option value="QR_ONLY">Large QR Code Only</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Download Button -->
+                <button id="downloadBtn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-xl shadow-md transition-colors flex justify-center items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd" />
+                    </svg>
+                    Download as 1-Bit BMP (480x800)
+                </button>
+            </div>
+
+            <!-- Right Side: Preview -->
+            <div class="w-full lg:w-1/2 flex flex-col items-center">
+                <h2 class="text-xl font-semibold mb-4 text-gray-800">Live Preview</h2>
+                <div class="bg-white p-4 rounded-xl shadow-md border border-gray-200 inline-block">
+                    <!-- Real canvas is 480x800, scaled down via CSS for preview -->
+                    <canvas id="badgeCanvas" width="480" height="800" class="border border-gray-300 rounded shadow-sm" style="max-width: 100%; height: auto; max-height: 70vh;"></canvas>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Toast Notification for errors -->
+    <div id="toast" class="fixed bottom-4 right-4 bg-red-600 text-white px-6 py-4 rounded-lg shadow-xl transform transition-transform translate-y-24 opacity-0 z-50 flex items-center gap-3">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        <span id="toastMessage" class="font-medium">An error occurred.</span>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('badgeCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        const inputs = ['title', 'name', 'kundenid', 'barcodeType', 'layoutType'];
+        inputs.forEach(id => {
+            document.getElementById(id).addEventListener('input', drawBadge);
+        });
+
+        document.getElementById('pkpassInput').addEventListener('change', handlePkPass);
+        document.getElementById('downloadBtn').addEventListener('click', downloadBMP);
+
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            document.getElementById('toastMessage').textContent = message;
+            toast.classList.remove('translate-y-24', 'opacity-0');
+            
+            setTimeout(() => {
+                toast.classList.add('translate-y-24', 'opacity-0');
+            }, 5000);
+        }
+
+        async function handlePkPass(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            try {
+                const zip = new JSZip();
+                const contents = await zip.loadAsync(file);
+                
+                if (!contents.files['pass.json']) {
+                    throw new Error("Invalid .pkpass file: pass.json is missing.");
+                }
+                
+                const passData = await contents.files['pass.json'].async("string");
+                const pass = JSON.parse(passData);
+
+                // 1. Extract Title
+                let title = pass.logoText || pass.organizationName || "Member";
+                
+                // 2. Extract ID / Barcode
+                let id = "";
+                if (pass.barcode && pass.barcode.message) {
+                    id = pass.barcode.message;
+                } else if (pass.barcodes && pass.barcodes.length > 0) {
+                    id = pass.barcodes[0].message;
+                }
+
+                // 3. Extract Name
+                let name = "";
+                const passTypes = ['boardingPass', 'coupon', 'eventTicket', 'generic', 'storeCard'];
+                let activePassType = null;
+                for (let pt of passTypes) {
+                    if (pass[pt]) {
+                        activePassType = pass[pt];
+                        break;
+                    }
+                }
+
+                if (activePassType) {
+                    const searchName = (fields) => {
+                        if (!fields) return null;
+                        for (let f of fields) {
+                            if ((f.key && f.key.toLowerCase().includes('name')) || 
+                                (f.label && f.label.toLowerCase().includes('name'))) {
+                                return f.value;
+                            }
+                        }
+                        return null;
+                    };
+
+                    name = searchName(activePassType.primaryFields) ||
+                           searchName(activePassType.secondaryFields) ||
+                           searchName(activePassType.auxiliaryFields) ||
+                           searchName(activePassType.backFields) || "";
+                }
+
+                // Update Form
+                document.getElementById('title').value = title;
+                document.getElementById('name').value = name;
+                document.getElementById('kundenid').value = id || "NO-ID";
+
+                // Redraw
+                await drawBadge();
+
+            } catch (e) {
+                showToast("Error processing file: " + e.message);
+            }
+            
+            // Reset input
+            event.target.value = '';
+        }
+
+        async function drawBadge() {
+            const title = document.getElementById('title').value;
+            const name = document.getElementById('name').value;
+            const id = document.getElementById('kundenid').value || " ";
+            const layout = document.getElementById('layoutType').value;
+            const barcodeFormat = document.getElementById('barcodeType').value;
+
+            // Fill background white
+            ctx.fillStyle = 'white';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Text settings
+            ctx.fillStyle = 'black';
+            ctx.textAlign = 'center';
+
+            // --- Layout Rendering Logic ---
+            
+            if (layout === 'TEXT_ONLY') {
+                ctx.font = 'bold 46px sans-serif';
+                ctx.fillText(title, canvas.width / 2, 250, 440);
+                
+                ctx.font = '36px sans-serif';
+                ctx.fillText(name, canvas.width / 2, 350, 440);
+                
+                if (id.trim() !== "") {
+                    ctx.font = 'bold 24px monospace';
+                    ctx.fillText("ID: " + id, canvas.width / 2, 450, 440);
+                }
+
+            } else if (layout === 'QR_ONLY') {
+                ctx.font = 'bold 40px sans-serif';
+                ctx.fillText(title, canvas.width / 2, 120, 440);
+                
+                if (id.trim() !== "") {
+                    try {
+                        const qrCanvas = document.createElement('canvas');
+                        new QRious({
+                            element: qrCanvas,
+                            value: id,
+                            size: 400, // Very large QR
+                            level: 'M',
+                            background: '#ffffff',
+                            foreground: '#000000'
+                        });
+                        const qrX = (canvas.width - qrCanvas.width) / 2;
+                        ctx.drawImage(qrCanvas, qrX, 200);
+                        
+                        ctx.font = 'bold 20px monospace';
+                        ctx.fillText(id, canvas.width / 2, 650, 440);
+                    } catch (e) {
+                        ctx.fillText("[Invalid ID Data]", canvas.width / 2, 400);
+                    }
+                }
+                
+            } else {
+                // ALL, TEXT_BARCODE, TEXT_QR
+                let titleY = layout === 'ALL' ? 80 : 140;
+                let nameY = layout === 'ALL' ? 140 : 220;
+                
+                ctx.font = 'bold 36px sans-serif';
+                ctx.fillText(title, canvas.width / 2, titleY, 440);
+                
+                ctx.font = '28px sans-serif';
+                ctx.fillText(name, canvas.width / 2, nameY, 440);
+
+                if (id.trim() !== "") {
+                    try {
+                        // Draw Barcode if required
+                        if (layout === 'ALL' || layout === 'TEXT_BARCODE') {
+                            const bcCanvas = document.createElement('canvas');
+                            JsBarcode(bcCanvas, id, {
+                                format: barcodeFormat,
+                                width: 3,
+                                height: 120,
+                                displayValue: true,
+                                fontSize: 24,
+                                margin: 10,
+                                background: "#ffffff",
+                                lineColor: "#000000"
+                            });
+                            
+                            let bcY = layout === 'ALL' ? 220 : 400;
+                            const bcX = (canvas.width - bcCanvas.width) / 2;
+                            ctx.drawImage(bcCanvas, bcX, bcY);
+                        }
+
+                        // Draw QR if required
+                        if (layout === 'ALL' || layout === 'TEXT_QR') {
+                            const qrCanvas = document.createElement('canvas');
+                            new QRious({
+                                element: qrCanvas,
+                                value: id,
+                                size: layout === 'ALL' ? 280 : 340,
+                                level: 'M',
+                                background: '#ffffff',
+                                foreground: '#000000'
+                            });
+                            
+                            let qrY = layout === 'ALL' ? 420 : 360;
+                            const qrX = (canvas.width - qrCanvas.width) / 2;
+                            ctx.drawImage(qrCanvas, qrX, qrY);
+                        }
+                    } catch (e) {
+                        console.error("Error generating codes: ", e);
+                        ctx.font = 'italic 20px sans-serif';
+                        ctx.fillStyle = 'gray';
+                        ctx.fillText("[Invalid format for selected code]", canvas.width / 2, 350);
+                    }
+                }
+            }
+        }
+
+        // --- 1-Bit Monochrome BMP Encoder Implementation ---
+        function create1BitMonochromeBMP() {
+            const width = canvas.width;   // 480
+            const height = canvas.height; // 800
+            const imageData = ctx.getImageData(0, 0, width, height);
+            const data = imageData.data;
+
+            // In 1-bit BMP, 8 pixels are packed into 1 byte.
+            // Row bytes must be a multiple of 4 bytes (32 bits).
+            // 480 pixels / 8 = 60 bytes. 60 is a multiple of 4, so no padding needed.
+            const rowBytes = Math.ceil(width / 32) * 4; 
+            const pixelDataSize = rowBytes * height;
+            
+            // Header Sizes: File(14) + DIB(40) + Palette(2 colors * 4 bytes = 8) = 62 Bytes
+            const offsetToPixels = 62;
+            const fileSize = offsetToPixels + pixelDataSize;
+
+            const buffer = new ArrayBuffer(fileSize);
+            const view = new DataView(buffer);
+
+            // 1. BMP Header
+            view.setUint8(0, 0x42); // 'B'
+            view.setUint8(1, 0x4D); // 'M'
+            view.setUint32(2, fileSize, true);
+            view.setUint16(6, 0, true);
+            view.setUint16(8, 0, true);
+            view.setUint32(10, offsetToPixels, true); // Offset to image data
+
+            // 2. DIB Header (BITMAPINFOHEADER)
+            view.setUint32(14, 40, true); // Header Size
+            view.setUint32(18, width, true); // Width
+            view.setInt32(22, height, true); // Height (Positive = Bottom-Up)
+            view.setUint16(26, 1, true); // Planes
+            view.setUint16(28, 1, true); // 1 Bit per Pixel (Monochrome)
+            view.setUint32(30, 0, true); // No compression
+            view.setUint32(34, pixelDataSize, true); // Image Size
+            view.setUint32(38, 2835, true); // X Pixels per meter (~72 DPI)
+            view.setUint32(42, 2835, true); // Y Pixels per meter
+            view.setUint32(46, 2, true); // 2 colors in the palette
+            view.setUint32(50, 2, true); // All colors are important
+
+            // 3. Color Palette (Black & White)
+            // Index 0: Black
+            view.setUint8(54, 0); // Blue
+            view.setUint8(55, 0); // Green
+            view.setUint8(56, 0); // Red
+            view.setUint8(57, 0); // Reserved
+            
+            // Index 1: White
+            view.setUint8(58, 255); // Blue
+            view.setUint8(59, 255); // Green
+            view.setUint8(60, 255); // Red
+            view.setUint8(61, 0);   // Reserved
+
+            // 4. Pixel Data (Bottom-Up, packing 8 pixels per byte)
+            let writeOffset = offsetToPixels;
+            for (let y = height - 1; y >= 0; y--) {
+                let rowOffset = writeOffset;
+                let currentByte = 0;
+                let bitIndex = 7; // Start writing from the Most Significant Bit (MSB)
+
+                for (let x = 0; x < width; x++) {
+                    const idx = (y * width + x) * 4;
+                    const r = data[idx], g = data[idx+1], b = data[idx+2];
+                    
+                    // Luma (brightness) calculation
+                    const luma = 0.299 * r + 0.587 * g + 0.114 * b;
+                    
+                    // Simple thresholding (if pixel is bright enough, make it white)
+                    if (luma > 127) {
+                        currentByte |= (1 << bitIndex); // Set bit to 1 (Index 1 = White)
+                    }
+                    // Else bit remains 0 (Index 0 = Black)
+
+                    bitIndex--;
+                    if (bitIndex < 0) {
+                        // Byte is full, write it to buffer
+                        view.setUint8(rowOffset++, currentByte);
+                        currentByte = 0;
+                        bitIndex = 7;
+                    }
+                }
+                
+                // If there are remaining bits (not applicable for width 480, but safe to have)
+                if (bitIndex !== 7) {
+                    view.setUint8(rowOffset++, currentByte);
+                }
+                
+                // Pad row to 4-byte boundary
+                while ((rowOffset - writeOffset) % 4 !== 0) {
+                    view.setUint8(rowOffset++, 0);
+                }
+                writeOffset += rowBytes;
+            }
+
+            return new Blob([buffer], { type: 'image/bmp' });
+        }
+
+        function downloadBMP() {
+            const blob = create1BitMonochromeBMP();
+            const url = URL.createObjectURL(blob);
+            
+            const a = document.createElement('a');
+            a.href = url;
+            
+            // Sanitize file name
+            const rawName = document.getElementById('name').value;
+            const safeName = rawName.replace(/[^a-z0-9]/gi, '_').toLowerCase() || 'badge';
+            
+            a.download = `badge_${safeName}.bmp`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            
+            // Clean up memory
+            setTimeout(() => URL.revokeObjectURL(url), 100);
+        }
+
+        // Initial draw on page load
+        window.onload = drawBadge;
+    </script>
+</body>
+</html>
